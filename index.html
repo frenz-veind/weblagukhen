@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    background: #0a0a0f;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Segoe UI', sans-serif;
+    position: relative;
+  }
+
+  .bg-glow {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 600px;
+    height: 600px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(255, 80, 120, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+    transition: opacity 0.5s;
+    opacity: 0;
+  }
+  .bg-glow.active { opacity: 1; }
+
+  /* === START SCREEN === */
+  #startScreen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    background: #0a0a0f;
+    transition: opacity 0.6s, transform 0.6s;
+  }
+  #startScreen.hidden {
+    opacity: 0;
+    transform: scale(1.1);
+    pointer-events: none;
+  }
+
+  .song-title {
+    color: #fff;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(255,255,255,0.2);
+  }
+  .song-subtitle {
+    color: #888;
+    font-size: 0.85rem;
+    margin-bottom: 50px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .start-btn {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #ff5078, #c93a6e);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 0 rgba(255, 80, 120, 0.5), 0 10px 30px rgba(255, 80, 120, 0.3);
+    transition: transform 0.2s;
+    animation: pulse 2.5s infinite;
+    position: relative;
+  }
+  .start-btn:hover { transform: scale(1.08); }
+  .start-btn:active { transform: scale(0.95); }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 80, 120, 0.4), 0 10px 30px rgba(255, 80, 120, 0.3); }
+    70% { box-shadow: 0 0 0 25px rgba(255, 80, 120, 0), 0 10px 30px rgba(255, 80, 120, 0.3); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 80, 120, 0), 0 10px 30px rgba(255, 80, 120, 0.3); }
+  }
+
+  .start-btn svg {
+    width: 36px;
+    height: 36px;
+    fill: white;
+    margin-left: 4px;
+  }
+
+  .start-label {
+    color: #aaa;
+    font-size: 0.75rem;
+    margin-top: 24px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* === PLAYER SCREEN === */
+  #playerScreen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.6s;
+  }
+  #playerScreen.visible { opacity: 1; }
+
+  .now-playing {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    text-align: center;
+    letter-spacing: 0.5px;
+    z-index: 2;
+  }
+  .now-playing-sub {
+    color: #777;
+    font-size: 0.75rem;
+    margin-bottom: 40px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    z-index: 2;
+  }
+
+  #visualizer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 220px;
+    z-index: 2;
+  }
+
+  .bar {
+    width: 6px;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #ff8aa8, #ff5078 50%, #c93a6e);
+    height: 4px;
+    box-shadow: 0 0 12px rgba(255, 80, 120, 0.5);
+    transition: height 0.05s ease-out;
+  }
+
+  .controls {
+    margin-top: 50px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    z-index: 2;
+  }
+
+  .control-btn {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .control-btn:hover { background: rgba(255,255,255,0.15); }
+  .control-btn:active { transform: scale(0.92); }
+  .control-btn svg { width: 22px; height: 22px; fill: #fff; }
+
+  #playPauseBtn {
+    width: 68px;
+    height: 68px;
+    background: linear-gradient(145deg, #ff5078, #c93a6e);
+  }
+  #playPauseBtn svg { width: 26px; height: 26px; }
+
+  .progress-wrap {
+    width: 280px;
+    margin-top: 30px;
+    z-index: 2;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff5078, #ff8aa8);
+    border-radius: 4px;
+  }
+  .time-labels {
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+    font-size: 0.7rem;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-glow" id="bgGlow"></div>
+
+<!-- START SCREEN -->
+<div id="startScreen">
+  <div class="song-title">You Broke Me First</div>
+  <div class="song-subtitle">Tap to begin</div>
+  <button class="start-btn" id="startBtn">
+    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+  <div class="start-label">Press Start</div>
+</div>
+
+<!-- PLAYER SCREEN -->
+<div id="playerScreen">
+  <div class="now-playing">You Broke Me First</div>
+  <div class="now-playing-sub">Now Playing</div>
+
+  <div id="visualizer"></div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="time-labels">
+      <span id="currentTime">0:00</span>
+      <span id="duration">0:00</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="control-btn" id="restartBtn">
+      <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+    </button>
+    <button class="control-btn" id="playPauseBtn">
+      <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button class="control-btn" id="muteBtn">
+      <svg id="volumeIcon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+      <svg id="muteIcon" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+    </button>
+  </div>
+</div>
+
+<audio id="audio" src="song.mp3" preload="auto"></audio>
+
+<script>
+const startScreen = document.getElementById('startScreen');
+const playerScreen = document.getElementById('playerScreen');
+const startBtn = document.getElementById('startBtn');
+const audio = document.getElementById('audio');
+const bgGlow = document.getElementById('bgGlow');
+
+const playPauseBtn = document.getElementById('playPauseBtn');
+const playIcon = document.getElementById('playIcon');
+const pauseIcon = document.getElementById('pauseIcon');
+const muteBtn = document.getElementById('muteBtn');
+const volumeIcon = document.getElementById('volumeIcon');
+const muteIcon = document.getElementById('muteIcon');
+const restartBtn = document.getElementById('restartBtn');
+
+const progressBar = document.getElementById('progressBar');
+const progressFill = document.getElementById('progressFill');
+const currentTimeEl = document.getElementById('currentTime');
+const durationEl = document.getElementById('duration');
+
+const visualizer = document.getElementById('visualizer');
+
+// Generate bars
+const BAR_COUNT = 64;
+const bars = [];
+for (let i = 0; i < BAR_COUNT; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  visualizer.appendChild(bar);
+  bars.push(bar);
+}
+
+let audioCtx, analyser, source, dataArray;
+let animationId;
+
+function setupAudioContext() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  source = audioCtx.createMediaElementSource(audio);
+  source.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+}
+
+function renderVisualizer() {
+  analyser.getByteFrequencyData(dataArray);
+
+  // Map 64 bars across frequency bins (skip very low/high noise bins a bit)
+  const usableBins = dataArray.length;
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const binIndex = Math.floor((i / BAR_COUNT) * usableBins);
+    const value = dataArray[binIndex];
+    const heightPercent = value / 255;
+    const height = Math.max(4, heightPercent * 200);
+    bars[i].style.height = height + 'px';
+
+    // Dynamic glow intensity based on amplitude
+    const glow = 8 + heightPercent * 24;
+    bars[i].style.boxShadow = `0 0 ${glow}px rgba(255, 80, 120, ${0.3 + heightPercent * 0.5})`;
+  }
+
+  animationId = requestAnimationFrame(renderVisualizer);
+}
+
+function formatTime(sec) {
+  if (isNaN(sec)) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+startBtn.addEventListener('click', async () => {
+  if (!audioCtx) setupAudioContext();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+  try {
+    await audio.play();
+  } catch (e) {
+    console.error('Playback failed:', e);
+  }
+
+  startScreen.classList.add('hidden');
+  setTimeout(() => {
+    playerScreen.classList.add('visible');
+    bgGlow.classList.add('active');
+  }, 200);
+
+  renderVisualizer();
+  updatePlayPauseUI(true);
+});
+
+function updatePlayPauseUI(playing) {
+  playIcon.style.display = playing ? 'none' : 'block';
+  pauseIcon.style.display = playing ? 'block' : 'none';
+}
+
+playPauseBtn.addEventListener('click', async () => {
+  if (audio.paused) {
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    await audio.play();
+    updatePlayPauseUI(true);
+  } else {
+    audio.pause();
+    updatePlayPauseUI(false);
+  }
+});
+
+restartBtn.addEventListener('click', () => {
+  audio.currentTime = 0;
+  if (audio.paused) {
+    audio.play();
+    updatePlayPauseUI(true);
+  }
+});
+
+let isMuted = false;
+muteBtn.addEventListener('click', () => {
+  isMuted = !isMuted;
+  audio.muted = isMuted;
+  volumeIcon.style.display = isMuted ? 'none' : 'block';
+  muteIcon.style.display = isMuted ? 'block' : 'none';
+});
+
+audio.addEventListener('loadedmetadata', () => {
+  durationEl.textContent = formatTime(audio.duration);
+});
+
+audio.addEventListener('timeupdate', () => {
+  const percent = (audio.currentTime / audio.duration) * 100;
+  progressFill.style.width = percent + '%';
+  currentTimeEl.textContent = formatTime(audio.currentTime);
+});
+
+audio.addEventListener('ended', () => {
+  updatePlayPauseUI(false);
+});
+
+progressBar.addEventListener('click', (e) => {
+  const rect = progressBar.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const percent = clickX / rect.width;
+  audio.currentTime = percent * audio.duration;
+});
+
+// Idle bar animation before audio context fully kicks in (fallback safety)
+function idlePulse() {
+  if (!audioCtx || audioCtx.state !== 'running') {
+    bars.forEach((bar, i) => {
+      const t = Date.now() / 300 + i * 0.3;
+      const h = 4 + (Math.sin(t) + 1) * 8;
+      bar.style.height = h + 'px';
+    });
+    requestAnimationFrame(idlePulse);
+  }
+}
+idlePulse();
+</script>
+</body>
+</html>
